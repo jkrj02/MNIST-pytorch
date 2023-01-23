@@ -12,18 +12,18 @@ Batch_Size = 32
 Epoch = 30
 
 
-# network - modify on LeNet-5
+# network
 class Network(nn.Module):
     def __init__(self):
         super(Network, self).__init__()
 
-        # 32*32*1 -> 28*28*6 -> 14*14*6
+        # 32*32*1 -> 28*28*24 -> 14*14*24
         self.conv1 = nn.Sequential(
             nn.Conv2d(1, 24, kernel_size=5, stride=1, padding=2),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2, padding=0)  # input_size=(6*28*28)，output_size=(6*14*14)
         )
-        # 14*14*6 -> 12*12*16 -> 6*6*16
+        # 14*14*24 -> 12*12*48 -> 6*6*48
         self.conv2 = nn.Sequential(
             nn.Conv2d(24, 48, kernel_size=3, stride=1, padding=0),
             nn.ReLU(),
