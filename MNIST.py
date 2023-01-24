@@ -23,24 +23,24 @@ class Network(nn.Module):
         self.conv1 = nn.Sequential(
             nn.Conv2d(1, 24, kernel_size=5, stride=1, padding=2),
             nn.ReLU(),
-            nn.AvgPool2d(kernel_size=2, stride=2, padding=0)  # input_size=(6*28*28)，output_size=(6*14*14)
+            nn.AvgPool2d(kernel_size=2, stride=2, padding=0)
         )
         # 14*14*24 -> 12*12*48 -> 6*6*48
         self.conv2 = nn.Sequential(
             nn.Conv2d(24, 48, kernel_size=3, stride=1, padding=0),
             nn.ReLU(),
-            nn.AvgPool2d(kernel_size=2, stride=2, padding=0)  # input_size=(6*28*28)，output_size=(6*14*14)
+            nn.AvgPool2d(kernel_size=2, stride=2, padding=0)
         )
         # 6*6*48 -> 2*2*64 -> 1*1*64
         self.conv3 = nn.Sequential(
             nn.Conv2d(48, 64, kernel_size=5, stride=1, padding=0),
             nn.ReLU(),
-            nn.AvgPool2d(kernel_size=2, stride=2, padding=0)  # input_size=(6*28*28)，output_size=(6*14*14)
+            nn.AvgPool2d(kernel_size=2, stride=2, padding=0)
         )
         # flatten
         # self.flatten = nn.Flatten()
         # self.fc = nn.Sequential(
-        #     nn.Linear(2 * 2 * 64, 128),
+        #     nn.Linear(4 * 4 * 48, 128),
         #     nn.ReLU(),
         #     nn.Linear(128, 64),
         #     nn.ReLU(),
@@ -137,7 +137,7 @@ if __name__ == '__main__':
     # print(device)
     network = Network().to(device)
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(network.parameters(), lr=1e-4)
+    optimizer = optim.Adam(network.parameters(), lr=3e-4)
 
     # training
     train(network, train_loader, optimizer, criterion)
