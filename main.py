@@ -8,8 +8,10 @@ import torch.optim as optim
 import torch.nn.functional as F
 
 # constants
-Batch_Size = 32
+Batch_Size = 36
 Epoch = 30
+loss_list = []
+accu_list = []
 
 
 # network
@@ -21,32 +23,28 @@ class Network(nn.Module):
         self.conv1 = nn.Sequential(
             nn.Conv2d(1, 24, kernel_size=5, stride=1, padding=2),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)  # input_size=(6*28*28)，output_size=(6*14*14)
+            nn.AvgPool2d(kernel_size=2, stride=2, padding=0)  # input_size=(6*28*28)，output_size=(6*14*14)
         )
         # 14*14*24 -> 12*12*48 -> 6*6*48
         self.conv2 = nn.Sequential(
             nn.Conv2d(24, 48, kernel_size=3, stride=1, padding=0),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)  # input_size=(6*28*28)，output_size=(6*14*14)
+            nn.AvgPool2d(kernel_size=2, stride=2, padding=0)  # input_size=(6*28*28)，output_size=(6*14*14)
         )
         # 6*6*48 -> 2*2*64 -> 1*1*64
         self.conv3 = nn.Sequential(
             nn.Conv2d(48, 64, kernel_size=5, stride=1, padding=0),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)  # input_size=(6*28*28)，output_size=(6*14*14)
+            nn.AvgPool2d(kernel_size=2, stride=2, padding=0)  # input_size=(6*28*28)，output_size=(6*14*14)
         )
         # flatten
-        self.flatten = nn.Flatten()
-        # fc1 5*5*16 -> 120
-        # self.fc1 = nn.Sequential(
-        #     nn.Linear(5 * 5 * 16, 120),
-        #     nn.ReLU()
-        # )
-        # # fc2 120 -> 84
-        # self.fc2 = nn.Sequential(
-        #     nn.Linear(120, 84),
+        # self.flatten = nn.Flatten()
+        # self.fc = nn.Sequential(
+        #     nn.Linear(2 * 2 * 64, 128),
         #     nn.ReLU(),
-        #     nn.Linear(84, 10)
+        #     nn.Linear(128, 64),
+        #     nn.ReLU(),
+        #     nn.Linear(64, 10)
         # )
         self.fc = nn.Linear(64, 10)
 
@@ -54,12 +52,51 @@ class Network(nn.Module):
         x = self.conv1(x)
         x = self.conv2(x)
         x = self.conv3(x)
-        x = self.flatten(x)
-        # x = self.fc1(x)
-        # x = self.fc2(x)
+        x = x.view(-1, 64)
         x = self.fc(x)
-        x = F.log_softmax(x)
+        x = F.log_softmax(x, dim=1)
         return x
+
+
+def train(net, dataloader, optimize, loss_func):
+    print('start training')
+    for epoch in range(Epoch):
+        sum_loss = 0.0
+        number_of_sub_epoch = 0
+
+        for images, labels in dataloader:
+            out = net(images.to(device))
+            optimize.zero_grad()
+            # count the loss
+            loss = loss_func(out, labels.to(device))
+            loss.backward()
+            # learning
+            optimize.step()
+            # calculate loss
+            sum_loss += loss.item()
+            number_of_sub_epoch += 1
+
+        # calculate average loss
+        epoch_loss = sum_loss / number_of_sub_epoch
+        loss_list.append(epoch_loss)
+        print("Epoch {}: loss: {}".format(epoch, epoch_loss))
+
+        accu_list.append(test(net, test_loader).cpu())
+    print('training done!')
+
+
+def test(net, dataloader):
+    correct = 0
+    total = 0
+
+    net.eval()
+    for images, labels in dataloader:
+        out = net(images.to(device))
+        _, predicted = torch.max(out.data, 1)  # outputs.data in shape of BS x 10  -->  BS x 1
+        total += labels.size(0)
+        correct += (predicted == labels.to(device)).type(torch.float).sum()
+
+    return correct / total * 100
 
 
 # main
@@ -100,41 +137,29 @@ if __name__ == '__main__':
     # print(device)
     network = Network().to(device)
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(network.parameters(), lr=1e-3)  # TODO: lr
+    optimizer = optim.Adam(network.parameters(), lr=1e-4)
 
-    print(next(network.parameters()).device)
     # training
-    print('start training')
-    for epoch in range(Epoch):
-        sum_loss = 0.0
-        number_of_sub_epoch = 0
-
-        for images, labels in train_loader:
-            out = network(images.to(device))
-            optimizer.zero_grad()
-            # count the loss
-            loss = criterion(out, labels.to(device))
-            loss.backward()
-            # learning
-            optimizer.step()
-
-            sum_loss += loss.item()
-            number_of_sub_epoch += 1
-        print("Epoch {}: Loss: {}".format(epoch, sum_loss / number_of_sub_epoch))
+    train(network, train_loader, optimizer, criterion)
 
     # test
-    correct = 0
-    total = 0
+    print('Test Accuracy: {:.1f}%'.format(test(network, test_loader)))
 
-    network.eval()
-    for images, labels in test_loader:
-        out = network(images.to(device))
-        _, predicted = torch.max(out.data, 1)  # outputs.data in shape of BS x 10  -->  BS x 1
-        total += labels.size(0)
-        correct += (predicted == labels.to(device)).sum()
-        # if labels.size(0) != (predicted == labels).sum():
-        #     print(labels.size(0))
-        #     print(labels)
-        #     print((predicted == labels).sum())
-        #     print(predicted)
-    print('Test Accuracy: {:.1f}%'.format(correct / total * 100))
+    # draw the picture
+    x_loss = range(1, len(loss_list)+1)
+    # x_accu = [i for i in range(Epoch) if (i + 1) % 5 == 0]
+    x_accu = range(1, Epoch+1)
+
+    fig = plt.figure()
+    ax1 = fig.add_subplot(111)
+    # left one
+    ax1.plot(x_loss, loss_list, 'b', label='Loss')
+    ax1.legend(loc='upper left')
+    ax1.set_ylabel('Loss')
+    # right one
+    ax2 = ax1.twinx()
+    ax2.plot(x_accu, accu_list, 'r', label='Accuracy', linestyle='none', marker='o')
+    ax2.legend(loc='upper right')
+    ax2.set_ylabel('Accuracy')
+    ax2.set_xlabel('Epoch')
+    plt.show()
